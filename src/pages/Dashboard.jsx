@@ -1,23 +1,38 @@
 import { useEffect, useState } from "react";
 import API from "../api/axios";
 import {
-  Table, TableHead, TableRow, TableCell,
-  TableBody, Paper, Button, TextField,
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  FormControlLabel, Checkbox
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Paper,
+  Button,
+  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControlLabel,
+  Checkbox,
+  Box,
+  Typography,
+  AppBar,
+  Toolbar,
+  Stack,
+  Divider,
 } from "@mui/material";
 
 export default function Dashboard() {
   const [students, setStudents] = useState([]);
   const [search, setSearch] = useState("");
-
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
 
-  // ✅ FULL FORM STATE (INCLUDING SECTION)
   const [form, setForm] = useState({
     name: "",
+    subject: "",
     class: "",
     section: "",
     abs: false,
@@ -28,10 +43,11 @@ export default function Dashboard() {
     behavior: "",
     participation: "",
     remarks: "",
-    action: ""
+    action: "",
+    others: "",
   });
 
-  // LOAD STUDENTS
+  // ---------------- LOAD ----------------
   const loadStudents = async () => {
     const res = await API.get("/students");
     setStudents(res.data);
@@ -41,13 +57,15 @@ export default function Dashboard() {
     loadStudents();
   }, []);
 
-  // SEARCH
+  // ---------------- SEARCH ----------------
   const searchStudent = async () => {
+    if (!search) return loadStudents();
+
     const res = await API.get(`/students/search?name=${search}`);
     setStudents(res.data);
   };
 
-  // EXPORT
+  // ---------------- EXPORT ----------------
   const handleExport = async () => {
     try {
       const response = await API.get("/students/export", {
@@ -68,11 +86,12 @@ export default function Dashboard() {
     }
   };
 
-  // OPEN ADD
+  // ---------------- OPEN MODAL ----------------
   const handleOpen = () => {
     setEditId(null);
     setForm({
       name: "",
+      subject: "",
       class: "",
       section: "",
       abs: false,
@@ -83,24 +102,24 @@ export default function Dashboard() {
       behavior: "",
       participation: "",
       remarks: "",
-      action: ""
+      action: "",
+      others: "",
     });
     setOpen(true);
   };
 
   const handleClose = () => setOpen(false);
 
-  // INPUT CHANGE
+  // ---------------- FORM ----------------
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // CHECKBOX CHANGE
   const handleCheckbox = (e) => {
     setForm({ ...form, [e.target.name]: e.target.checked });
   };
 
-  // SUBMIT (ADD / UPDATE)
+  // ---------------- SUBMIT ----------------
   const handleSubmit = async () => {
     try {
       if (editId) {
@@ -117,11 +136,13 @@ export default function Dashboard() {
     }
   };
 
-  // EDIT
+  // ---------------- EDIT ----------------
   const handleEdit = (s) => {
     setEditId(s.id);
+
     setForm({
       name: s.name || "",
+      subject: s.subject || "",
       class: s.class || "",
       section: s.section || "",
       abs: s.abs || false,
@@ -132,155 +153,175 @@ export default function Dashboard() {
       behavior: s.behavior || "",
       participation: s.participation || "",
       remarks: s.remarks || "",
-      action: s.action || ""
+      action: s.action || "",
+      others: s.others || "",
     });
+
     setOpen(true);
   };
 
-  // DELETE
+  // ---------------- DELETE ----------------
   const handleDelete = async (id) => {
     if (!window.confirm("Delete student?")) return;
-
     await API.delete(`/students/${id}`);
     loadStudents();
   };
 
   return (
-    <div
-      style={{
-        padding: 20,
-        minHeight: "100vh",
-        background: darkMode ? "#121212" : "#f5f6fa",
-        color: darkMode ? "#fff" : "#000"
-      }}
-    >
+    <Box sx={{ minHeight: "100vh", bgcolor: darkMode ? "#0f172a" : "#f1f5f9" }}>
 
-      <h2>Student Tracking System</h2>
+      {/* TOP BAR */}
+      <AppBar position="static" sx={{ bgcolor: "#1e293b" }}>
+        <Toolbar>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            Marigold • Student Tracking
+          </Typography>
 
-      {/* TOOLBAR */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-        <TextField
-          label="Search student"
-          onChange={(e) => setSearch(e.target.value)}
-        />
+          <Button
+            variant="contained"
+            onClick={() => setDarkMode(!darkMode)}
+            sx={{ bgcolor: "#334155" }}
+          >
+            {darkMode ? "Light ☀️" : "Dark 🌙"}
+          </Button>
+        </Toolbar>
+      </AppBar>
 
-        <Button variant="contained" onClick={searchStudent}>
-          Search
-        </Button>
+      {/* CONTENT */}
+      <Box sx={{ p: 3 }}>
 
-        <Button variant="outlined" onClick={handleExport}>
-          Export Excel
-        </Button>
+        <Typography variant="h5" fontWeight="bold" mb={2}>
+          Dashboard
+        </Typography>
 
-        <Button variant="contained" color="success" onClick={handleOpen}>
-          + Add Student
-        </Button>
+        {/* TOOLBAR */}
+        <Paper sx={{ p: 2, mb: 3 }}>
+          <Stack direction="row" spacing={2} flexWrap="wrap">
+            <TextField
+              label="Search student..."
+              size="small"
+              onChange={(e) => setSearch(e.target.value)}
+            />
 
-        <Button
-          variant="contained"
-          onClick={() => setDarkMode(!darkMode)}
-        >
-          {darkMode ? "Light Mode ☀️" : "Dark Mode 🌙"}
-        </Button>
-      </div>
+            <Button variant="contained" onClick={searchStudent}>
+              Search
+            </Button>
 
-      {/* TABLE */}
-      <Paper style={{ background: darkMode ? "#1e1e1e" : "#fff", overflowX: "auto" }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              {[
-                "Name",
-                "Class",
-                "Section",
-                "Abs",
-                "Late",
-                "Materials",
-                "Classwork",
-                "Homework",
-                "Behavior",
-                "Participation",
-                "Remarks",
-                "Action",
-                "Actions"
-              ].map((h) => (
-                <TableCell key={h} style={{ color: darkMode ? "#fff" : "#000" }}>
-                  {h}
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
+            <Button variant="outlined" onClick={handleExport}>
+              Export
+            </Button>
 
-          <TableBody>
-            {students.map((s) => (
-              <TableRow key={s.id}>
-                <TableCell>{s.name}</TableCell>
-                <TableCell>{s.class}</TableCell>
-                <TableCell>{s.section}</TableCell>
+            <Button variant="contained" color="success" onClick={handleOpen}>
+              + Add Student
+            </Button>
+          </Stack>
+        </Paper>
 
-                <TableCell>{s.abs ? "Yes" : "No"}</TableCell>
-                <TableCell>{s.late ? "Yes" : "No"}</TableCell>
+        {/* TABLE */}
+        <Paper>
+          <Table size="small">
 
-                <TableCell>{s.materials}</TableCell>
-                <TableCell>{s.classwork}</TableCell>
-                <TableCell>{s.homework}</TableCell>
-
-                <TableCell>{s.behavior}</TableCell>
-                <TableCell>{s.participation}</TableCell>
-
-                <TableCell>{s.remarks}</TableCell>
-                <TableCell>{s.action}</TableCell>
-
-                <TableCell>
-                  <Button size="small" onClick={() => handleEdit(s)}>
-                    Edit
-                  </Button>
-                  <Button
-                    size="small"
-                    color="error"
-                    onClick={() => handleDelete(s.id)}
-                  >
-                    Delete
-                  </Button>
-                </TableCell>
+            <TableHead sx={{ bgcolor: "#e2e8f0" }}>
+              <TableRow>
+                {[
+                  "Name",
+                  "Subject",
+                  "Class",
+                  "Section",
+                  "Abs",
+                  "Late",
+                  "Materials",
+                  "Classwork",
+                  "Homework",
+                  "Behavior",
+                  "Participation",
+                  "Remarks",
+                  "Action",
+                  "Others",
+                  "Actions",
+                ].map((h) => (
+                  <TableCell key={h} sx={{ fontWeight: "bold" }}>
+                    {h}
+                  </TableCell>
+                ))}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Paper>
+            </TableHead>
+
+            <TableBody>
+              {students.map((s) => (
+                <TableRow key={s.id} hover>
+
+                  <TableCell>{s.name}</TableCell>
+                  <TableCell>{s.subject}</TableCell>
+                  <TableCell>{s.class}</TableCell>
+                  <TableCell>{s.section}</TableCell>
+                  <TableCell>{s.abs ? "✔" : "—"}</TableCell>
+                  <TableCell>{s.late ? "✔" : "—"}</TableCell>
+                  <TableCell>{s.materials}</TableCell>
+                  <TableCell>{s.classwork}</TableCell>
+                  <TableCell>{s.homework}</TableCell>
+                  <TableCell>{s.behavior}</TableCell>
+                  <TableCell>{s.participation}</TableCell>
+                  <TableCell>{s.remarks}</TableCell>
+                  <TableCell>{s.action}</TableCell>
+                  <TableCell>{s.others}</TableCell>
+
+                  <TableCell>
+                    <Stack direction="row" spacing={1}>
+                      <Button size="small" onClick={() => handleEdit(s)}>
+                        Edit
+                      </Button>
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={() => handleDelete(s.id)}
+                      >
+                        Delete
+                      </Button>
+                    </Stack>
+                  </TableCell>
+
+                </TableRow>
+              ))}
+            </TableBody>
+
+          </Table>
+        </Paper>
+      </Box>
 
       {/* MODAL */}
       <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
-        <DialogTitle>{editId ? "Edit Student" : "Add Student"}</DialogTitle>
 
-        <DialogContent>
+        <DialogTitle>
+          {editId ? "Edit Student" : "Add Student"}
+        </DialogTitle>
 
-          <h4>Basic Info</h4>
-          <TextField fullWidth margin="dense" name="name" label="Name" value={form.name} onChange={handleChange} />
-          <TextField fullWidth margin="dense" name="class" label="Class" value={form.class} onChange={handleChange} />
-          <TextField fullWidth margin="dense" name="section" label="Section" value={form.section} onChange={handleChange} />
+        <DialogContent dividers>
 
-          <h4>Attendance</h4>
-          <FormControlLabel
-            control={<Checkbox checked={form.abs} name="abs" onChange={handleCheckbox} />}
-            label="Absent"
-          />
+          <Stack spacing={2}>
+            <TextField name="name" label="Name" value={form.name} onChange={handleChange} />
+            <TextField name="subject" label="Subject" value={form.subject} onChange={handleChange} />
+            <TextField name="class" label="Class" value={form.class} onChange={handleChange} />
+            <TextField name="section" label="Section" value={form.section} onChange={handleChange} />
 
-          <FormControlLabel
-            control={<Checkbox checked={form.late} name="late" onChange={handleCheckbox} />}
-            label="Late"
-          />
+            <FormControlLabel
+              control={<Checkbox name="abs" checked={form.abs} onChange={handleCheckbox} />}
+              label="Absent"
+            />
+            <FormControlLabel
+              control={<Checkbox name="late" checked={form.late} onChange={handleCheckbox} />}
+              label="Late"
+            />
 
-          <h4>Academic</h4>
-          <TextField fullWidth margin="dense" name="materials" label="Materials" value={form.materials} onChange={handleChange} />
-          <TextField fullWidth margin="dense" name="classwork" label="Classwork" value={form.classwork} onChange={handleChange} />
-          <TextField fullWidth margin="dense" name="homework" label="Homework" value={form.homework} onChange={handleChange} />
-          <TextField fullWidth margin="dense" name="participation" label="Participation" value={form.participation} onChange={handleChange} />
-
-          <h4>Behavior</h4>
-          <TextField fullWidth margin="dense" name="behavior" label="Behavior" value={form.behavior} onChange={handleChange} />
-          <TextField fullWidth margin="dense" name="remarks" label="Remarks" value={form.remarks} onChange={handleChange} />
-          <TextField fullWidth margin="dense" name="action" label="Action" value={form.action} onChange={handleChange} />
+            <TextField name="materials" label="Materials" value={form.materials} onChange={handleChange} />
+            <TextField name="classwork" label="Classwork" value={form.classwork} onChange={handleChange} />
+            <TextField name="homework" label="Homework" value={form.homework} onChange={handleChange} />
+            <TextField name="behavior" label="Behavior" value={form.behavior} onChange={handleChange} />
+            <TextField name="participation" label="Participation" value={form.participation} onChange={handleChange} />
+            <TextField name="remarks" label="Remarks" value={form.remarks} onChange={handleChange} />
+            <TextField name="action" label="Action" value={form.action} onChange={handleChange} />
+            <TextField name="others" label="Others" value={form.others} onChange={handleChange} />
+          </Stack>
 
         </DialogContent>
 
@@ -290,8 +331,9 @@ export default function Dashboard() {
             {editId ? "Update" : "Save"}
           </Button>
         </DialogActions>
+
       </Dialog>
 
-    </div>
+    </Box>
   );
 }
