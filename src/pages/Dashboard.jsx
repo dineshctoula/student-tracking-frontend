@@ -20,7 +20,7 @@ import {
   AppBar,
   Toolbar,
   Stack,
-  Divider,
+  Grid,
 } from "@mui/material";
 
 export default function Dashboard() {
@@ -47,7 +47,6 @@ export default function Dashboard() {
     others: "",
   });
 
-  // ---------------- LOAD ----------------
   const loadStudents = async () => {
     const res = await API.get("/students");
     setStudents(res.data);
@@ -57,18 +56,16 @@ export default function Dashboard() {
     loadStudents();
   }, []);
 
-  // ---------------- SEARCH ----------------
   const searchStudent = async () => {
     if (!search) return loadStudents();
-
     const res = await API.get(`/students/search?name=${search}`);
     setStudents(res.data);
   };
 
-  // ---------------- EXPORT ----------------
   const handleExport = async () => {
     try {
       const response = await API.get("/students/export", {
+        params: search ? { name: search } : {},
         responseType: "blob",
       });
 
@@ -86,7 +83,6 @@ export default function Dashboard() {
     }
   };
 
-  // ---------------- OPEN MODAL ----------------
   const handleOpen = () => {
     setEditId(null);
     setForm({
@@ -110,7 +106,6 @@ export default function Dashboard() {
 
   const handleClose = () => setOpen(false);
 
-  // ---------------- FORM ----------------
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -119,7 +114,6 @@ export default function Dashboard() {
     setForm({ ...form, [e.target.name]: e.target.checked });
   };
 
-  // ---------------- SUBMIT ----------------
   const handleSubmit = async () => {
     try {
       if (editId) {
@@ -127,7 +121,6 @@ export default function Dashboard() {
       } else {
         await API.post("/students", form);
       }
-
       setOpen(false);
       setEditId(null);
       loadStudents();
@@ -136,31 +129,12 @@ export default function Dashboard() {
     }
   };
 
-  // ---------------- EDIT ----------------
   const handleEdit = (s) => {
     setEditId(s.id);
-
-    setForm({
-      name: s.name || "",
-      subject: s.subject || "",
-      class: s.class || "",
-      section: s.section || "",
-      abs: s.abs || false,
-      late: s.late || false,
-      materials: s.materials || "",
-      classwork: s.classwork || "",
-      homework: s.homework || "",
-      behavior: s.behavior || "",
-      participation: s.participation || "",
-      remarks: s.remarks || "",
-      action: s.action || "",
-      others: s.others || "",
-    });
-
+    setForm({ ...s });
     setOpen(true);
   };
 
-  // ---------------- DELETE ----------------
   const handleDelete = async (id) => {
     if (!window.confirm("Delete student?")) return;
     await API.delete(`/students/${id}`);
@@ -172,7 +146,7 @@ export default function Dashboard() {
 
       {/* TOP BAR */}
       <AppBar position="static" sx={{ bgcolor: "#1e293b" }}>
-        <Toolbar>
+        <Toolbar sx={{ flexWrap: "wrap", gap: 1 }}>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             Marigold • Student Tracking
           </Typography>
@@ -188,38 +162,55 @@ export default function Dashboard() {
       </AppBar>
 
       {/* CONTENT */}
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 1, md: 3 } }}>
 
         <Typography variant="h5" fontWeight="bold" mb={2}>
           Dashboard
         </Typography>
 
-        {/* TOOLBAR */}
+        {/* TOOLBAR - RESPONSIVE */}
         <Paper sx={{ p: 2, mb: 3 }}>
-          <Stack direction="row" spacing={2} flexWrap="wrap">
-            <TextField
-              label="Search student..."
-              size="small"
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          <Grid container spacing={2} alignItems="center">
 
-            <Button variant="contained" onClick={searchStudent}>
-              Search
-            </Button>
+            <Grid item xs={12} sm={6} md={4}>
+              <TextField
+                fullWidth
+                label="Search student..."
+                size="small"
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </Grid>
 
-            <Button variant="outlined" onClick={handleExport}>
-              Export
-            </Button>
+            <Grid item xs={12} sm={6} md={8}>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={2}
+              >
+                <Button variant="contained" onClick={searchStudent} fullWidth>
+                  Search
+                </Button>
 
-            <Button variant="contained" color="success" onClick={handleOpen}>
-              + Add Student
-            </Button>
-          </Stack>
+                <Button variant="outlined" onClick={handleExport} fullWidth>
+                  Export
+                </Button>
+
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={handleOpen}
+                  fullWidth
+                >
+                  + Add Student
+                </Button>
+              </Stack>
+            </Grid>
+
+          </Grid>
         </Paper>
 
-        {/* TABLE */}
-        <Paper>
-          <Table size="small">
+        {/* TABLE WRAPPER (IMPORTANT FOR MOBILE SCROLL) */}
+        <Paper sx={{ overflowX: "auto" }}>
+          <Table size="small" sx={{ minWidth: 1200 }}>
 
             <TableHead sx={{ bgcolor: "#e2e8f0" }}>
               <TableRow>
@@ -240,7 +231,7 @@ export default function Dashboard() {
                   "Others",
                   "Actions",
                 ].map((h) => (
-                  <TableCell key={h} sx={{ fontWeight: "bold" }}>
+                  <TableCell key={h} sx={{ fontWeight: "bold", whiteSpace: "nowrap" }}>
                     {h}
                   </TableCell>
                 ))}
@@ -271,11 +262,7 @@ export default function Dashboard() {
                       <Button size="small" onClick={() => handleEdit(s)}>
                         Edit
                       </Button>
-                      <Button
-                        size="small"
-                        color="error"
-                        onClick={() => handleDelete(s.id)}
-                      >
+                      <Button size="small" color="error" onClick={() => handleDelete(s.id)}>
                         Delete
                       </Button>
                     </Stack>
@@ -289,7 +276,7 @@ export default function Dashboard() {
         </Paper>
       </Box>
 
-      {/* MODAL */}
+      {/* MODAL - FIXED STRUCTURE */}
       <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
 
         <DialogTitle>
@@ -298,12 +285,36 @@ export default function Dashboard() {
 
         <DialogContent dividers>
 
-          <Stack spacing={2}>
-            <TextField name="name" label="Name" value={form.name} onChange={handleChange} />
-            <TextField name="subject" label="Subject" value={form.subject} onChange={handleChange} />
-            <TextField name="class" label="Class" value={form.class} onChange={handleChange} />
-            <TextField name="section" label="Section" value={form.section} onChange={handleChange} />
+          <Grid container spacing={2}>
 
+            {[
+              "name",
+              "subject",
+              "class",
+              "section",
+              "materials",
+              "classwork",
+              "homework",
+              "behavior",
+              "participation",
+              "remarks",
+              "action",
+              "others",
+            ].map((field) => (
+              <Grid item xs={12} sm={6} key={field}>
+                <TextField
+                  fullWidth
+                  name={field}
+                  label={field.toUpperCase()}
+                  value={form[field]}
+                  onChange={handleChange}
+                />
+              </Grid>
+            ))}
+
+          </Grid>
+
+          <Box mt={2}>
             <FormControlLabel
               control={<Checkbox name="abs" checked={form.abs} onChange={handleCheckbox} />}
               label="Absent"
@@ -312,16 +323,7 @@ export default function Dashboard() {
               control={<Checkbox name="late" checked={form.late} onChange={handleCheckbox} />}
               label="Late"
             />
-
-            <TextField name="materials" label="Materials" value={form.materials} onChange={handleChange} />
-            <TextField name="classwork" label="Classwork" value={form.classwork} onChange={handleChange} />
-            <TextField name="homework" label="Homework" value={form.homework} onChange={handleChange} />
-            <TextField name="behavior" label="Behavior" value={form.behavior} onChange={handleChange} />
-            <TextField name="participation" label="Participation" value={form.participation} onChange={handleChange} />
-            <TextField name="remarks" label="Remarks" value={form.remarks} onChange={handleChange} />
-            <TextField name="action" label="Action" value={form.action} onChange={handleChange} />
-            <TextField name="others" label="Others" value={form.others} onChange={handleChange} />
-          </Stack>
+          </Box>
 
         </DialogContent>
 
