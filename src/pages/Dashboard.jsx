@@ -21,7 +21,6 @@ import {
   DialogActions,
   Checkbox,
   FormControlLabel,
-  Grid,
 } from "@mui/material";
 
 export default function Dashboard() {
@@ -32,7 +31,11 @@ export default function Dashboard() {
   const [recordOpen, setRecordOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
 
+  const [editMode, setEditMode] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
+
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const [studentForm, setStudentForm] = useState({
     name: "",
@@ -71,15 +74,45 @@ export default function Dashboard() {
     setStudents(res.data);
   };
 
-  // ================= STUDENT =================
+  // ================= EXPORT (CORRECT PLACE) =================
+  const handleExport = async () => {
+    const res = await API.get("/students/export", {
+      responseType: "blob",
+    });
+
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "students.xlsx";
+    a.click();
+  };
+
+  // ================= STUDENT CREATE/UPDATE =================
   const handleStudentChange = (e) => {
     setStudentForm({ ...studentForm, [e.target.name]: e.target.value });
   };
 
-  const createStudent = async () => {
-    await API.post("/students", studentForm);
-    setStudentOpen(false);
+  const openAddStudent = () => {
+    setEditMode(false);
     setStudentForm({ name: "", subject: "", class: "", section: "" });
+    setStudentOpen(true);
+  };
+
+  const openEditStudent = (student) => {
+    setEditMode(true);
+    setSelectedStudent(student);
+    setStudentForm(student);
+    setStudentOpen(true);
+  };
+
+  const saveStudent = async () => {
+    if (editMode) {
+      await API.patch(`/students/${selectedStudent.id}`, studentForm);
+    } else {
+      await API.post("/students", studentForm);
+    }
+
+    setStudentOpen(false);
     loadStudents();
   };
 
@@ -92,7 +125,7 @@ export default function Dashboard() {
     setRecordForm({ ...recordForm, [e.target.name]: e.target.checked });
   };
 
-  const openRecordModal = (student) => {
+  const openRecord = (student) => {
     setSelectedStudent(student);
     setRecordOpen(true);
   };
@@ -103,24 +136,20 @@ export default function Dashboard() {
       recordForm
     );
 
-    setRecordForm({
-      abs: false,
-      late: false,
-      materials: "",
-      classwork: "",
-      homework: "",
-      behavior: "",
-      participation: "",
-      remarks: "",
-      action: "",
-      others: "",
-    });
-
-    const res = await API.get(`/students/${selectedStudent.id}`);
-    setSelectedStudent(res.data);
-
     setRecordOpen(false);
     loadStudents();
+  };
+
+  // ================= FILTER =================
+  const filterRecords = async (studentId) => {
+    const res = await API.get(`/students/${studentId}/records`, {
+      params: {
+        from: fromDate || undefined,
+        to: toDate || undefined,
+      },
+    });
+
+    setSelectedStudent({ ...selectedStudent, records: res.data });
   };
 
   // ================= DELETE =================
@@ -134,24 +163,24 @@ export default function Dashboard() {
     <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
 
       {/* TOP BAR */}
-      <AppBar position="static" sx={{ bgcolor: "#0f172a" }}>
+      <AppBar position="static">
         <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Marigold • Student Tracking
+          <Typography sx={{ flexGrow: 1 }}>
+            Student Tracking System
           </Typography>
         </Toolbar>
       </AppBar>
 
-      {/* CONTENT */}
-      <Box sx={{ p: { xs: 2, md: 4 } }}>
+      <Box sx={{ p: 3 }}>
 
-        <Typography variant="h4" fontWeight="bold" mb={3}>
+        <Typography variant="h4" mb={2}>
           Dashboard
         </Typography>
 
-        {/* TOOLBAR */}
+        {/* SEARCH + EXPORT (CORRECT PLACE) */}
         <Paper sx={{ p: 2, mb: 3 }}>
           <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+
             <TextField
               label="Search student"
               fullWidth
@@ -162,73 +191,64 @@ export default function Dashboard() {
               Search
             </Button>
 
-            <Button variant="contained" onClick={() => setStudentOpen(true)}>
+            <Button variant="outlined" color="success" onClick={handleExport}>
+              Export Excel
+            </Button>
+
+            <Button variant="contained" onClick={openAddStudent}>
               + Add Student
             </Button>
+
           </Stack>
         </Paper>
 
         {/* TABLE */}
-        <Paper sx={{ overflowX: "auto" }}>
-          <Table size="small">
-            <TableHead sx={{ bgcolor: "#e2e8f0" }}>
+        <Paper>
+          <Table>
+            <TableHead>
               <TableRow>
-                <TableCell><b>Name</b></TableCell>
-                <TableCell><b>Subject</b></TableCell>
-                <TableCell><b>Class</b></TableCell>
-                <TableCell><b>Section</b></TableCell>
-                <TableCell><b>Total Records</b></TableCell>
-                <TableCell><b>Actions</b></TableCell>
+                <TableCell>Name</TableCell>
+                <TableCell>Class</TableCell>
+                <TableCell>Section</TableCell>
+                <TableCell>Records</TableCell>
+                <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
 
             <TableBody>
-              {students.map((student) => (
-                <TableRow key={student.id}>
-                  <TableCell>{student.name}</TableCell>
-                  <TableCell>{student.subject}</TableCell>
-                  <TableCell>{student.class}</TableCell>
-                  <TableCell>{student.section}</TableCell>
+              {students.map((s) => (
+                <TableRow key={s.id}>
+                  <TableCell>{s.name}</TableCell>
+                  <TableCell>{s.class}</TableCell>
+                  <TableCell>{s.section}</TableCell>
+                  <TableCell>{s.records?.length || 0}</TableCell>
 
                   <TableCell>
-                    {student.records?.length || 0}
-                  </TableCell>
+                    <Stack direction="row" spacing={1}>
 
-                  <TableCell>
-                    <Stack direction="row" spacing={1} flexWrap="wrap">
-
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={() => openRecordModal(student)}
-                      >
-                        Add Record
+                      <Button onClick={() => openRecord(s)}>
+                        Add
                       </Button>
 
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={async () => {
-                          const res = await API.get(`/students/${student.id}`);
+                      <Button onClick={() => {
+                        API.get(`/students/${s.id}`).then(res => {
                           setSelectedStudent(res.data);
                           setViewOpen(true);
-                        }}
-                      >
+                        });
+                      }}>
                         View
                       </Button>
 
-                      <Button
-                        size="small"
-                        color="error"
-                        variant="contained"
-                        onClick={() => deleteStudent(student.id)}
-                      >
+                      <Button onClick={() => openEditStudent(s)}>
+                        Edit
+                      </Button>
+
+                      <Button color="error" onClick={() => deleteStudent(s.id)}>
                         Delete
                       </Button>
 
                     </Stack>
                   </TableCell>
-
                 </TableRow>
               ))}
             </TableBody>
@@ -236,51 +256,80 @@ export default function Dashboard() {
         </Paper>
       </Box>
 
-      {/* VIEW RECORDS */}
+      {/* ADD / EDIT STUDENT */}
+      <Dialog open={studentOpen} onClose={() => setStudentOpen(false)}>
+        <DialogTitle>
+          {editMode ? "Edit Student" : "Add Student"}
+        </DialogTitle>
+
+        <DialogContent>
+          <Stack spacing={2} mt={1}>
+            <TextField name="name" label="Name" value={studentForm.name} onChange={handleStudentChange} />
+            <TextField name="subject" label="Subject" value={studentForm.subject} onChange={handleStudentChange} />
+            <TextField name="class" label="Class" value={studentForm.class} onChange={handleStudentChange} />
+            <TextField name="section" label="Section" value={studentForm.section} onChange={handleStudentChange} />
+          </Stack>
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={() => setStudentOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={saveStudent}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* VIEW + FILTER */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} fullWidth maxWidth="lg">
-        <DialogTitle>Records - {selectedStudent?.name}</DialogTitle>
+        <DialogTitle>
+          Records - {selectedStudent?.name}
+        </DialogTitle>
 
-        <DialogContent dividers>
+        <DialogContent>
 
-          {selectedStudent?.records?.length ? (
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Abs</TableCell>
-                  <TableCell>Late</TableCell>
-                  <TableCell>Materials</TableCell>
-                  <TableCell>Classwork</TableCell>
-                  <TableCell>Homework</TableCell>
-                  <TableCell>Behavior</TableCell>
-                  <TableCell>Participation</TableCell>
-                  <TableCell>Remarks</TableCell>
-                  <TableCell>Action</TableCell>
-                  <TableCell>Others</TableCell>
+          {/* FILTER */}
+          <Stack direction="row" spacing={2} mb={2}>
+            <TextField type="date" onChange={(e) => setFromDate(e.target.value)} />
+            <TextField type="date" onChange={(e) => setToDate(e.target.value)} />
+
+            <Button onClick={() => filterRecords(selectedStudent.id)}>
+              Filter
+            </Button>
+
+            <Button onClick={async () => {
+              const res = await API.get(`/students/${selectedStudent.id}`);
+              setSelectedStudent(res.data);
+            }}>
+              Reset
+            </Button>
+          </Stack>
+
+          {/* TABLE */}
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Date</TableCell>
+                <TableCell>Abs</TableCell>
+                <TableCell>Late</TableCell>
+                <TableCell>Homework</TableCell>
+                <TableCell>Behavior</TableCell>
+                <TableCell>Remarks</TableCell>
+              </TableRow>
+            </TableHead>
+
+            <TableBody>
+              {selectedStudent?.records?.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell>{new Date(r.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>{r.abs ? "Yes" : "No"}</TableCell>
+                  <TableCell>{r.late ? "Yes" : "No"}</TableCell>
+                  <TableCell>{r.homework}</TableCell>
+                  <TableCell>{r.behavior}</TableCell>
+                  <TableCell>{r.remarks}</TableCell>
                 </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {selectedStudent.records.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell>{new Date(r.createdAt).toLocaleDateString()}</TableCell>
-                    <TableCell>{r.abs ? "Yes" : "No"}</TableCell>
-                    <TableCell>{r.late ? "Yes" : "No"}</TableCell>
-                    <TableCell>{r.materials}</TableCell>
-                    <TableCell>{r.classwork}</TableCell>
-                    <TableCell>{r.homework}</TableCell>
-                    <TableCell>{r.behavior}</TableCell>
-                    <TableCell>{r.participation}</TableCell>
-                    <TableCell>{r.remarks}</TableCell>
-                    <TableCell>{r.action}</TableCell>
-                    <TableCell>{r.others}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <Typography>No records found</Typography>
-          )}
+              ))}
+            </TableBody>
+          </Table>
 
         </DialogContent>
 
@@ -290,65 +339,23 @@ export default function Dashboard() {
       </Dialog>
 
       {/* ADD RECORD */}
-      <Dialog open={recordOpen} onClose={() => setRecordOpen(false)} fullWidth maxWidth="md">
-
+      <Dialog open={recordOpen} onClose={() => setRecordOpen(false)}>
         <DialogTitle>Add Record</DialogTitle>
 
         <DialogContent>
-          <Grid container spacing={2}>
+          <Stack spacing={2}>
+            <FormControlLabel control={<Checkbox name="abs" onChange={handleCheckbox} />} label="Absent" />
+            <FormControlLabel control={<Checkbox name="late" onChange={handleCheckbox} />} label="Late" />
 
-            <Grid item xs={6}>
-              <FormControlLabel
-                control={<Checkbox name="abs" checked={recordForm.abs} onChange={handleCheckbox} />}
-                label="Absent"
-              />
-            </Grid>
-
-            <Grid item xs={6}>
-              <FormControlLabel
-                control={<Checkbox name="late" checked={recordForm.late} onChange={handleCheckbox} />}
-                label="Late"
-              />
-            </Grid>
-
-            {["materials","classwork","homework","behavior","participation","remarks","action","others"].map((f) => (
-              <Grid item xs={12} key={f}>
-                <TextField
-                  fullWidth
-                  name={f}
-                  label={f}
-                  value={recordForm[f]}
-                  onChange={handleRecordChange}
-                />
-              </Grid>
-            ))}
-
-          </Grid>
-        </DialogContent>
-
-        <DialogActions>
-          <Button onClick={() => setRecordOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={addRecord}>Save</Button>
-        </DialogActions>
-
-      </Dialog>
-
-      {/* ADD STUDENT */}
-      <Dialog open={studentOpen} onClose={() => setStudentOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Add Student</DialogTitle>
-
-        <DialogContent>
-          <Stack spacing={2} mt={1}>
-            <TextField name="name" label="Name" onChange={handleStudentChange} />
-            <TextField name="subject" label="Subject" onChange={handleStudentChange} />
-            <TextField name="class" label="Class" onChange={handleStudentChange} />
-            <TextField name="section" label="Section" onChange={handleStudentChange} />
+            <TextField name="homework" label="Homework" onChange={handleRecordChange} />
+            <TextField name="behavior" label="Behavior" onChange={handleRecordChange} />
+            <TextField name="remarks" label="Remarks" onChange={handleRecordChange} />
           </Stack>
         </DialogContent>
 
         <DialogActions>
-          <Button onClick={() => setStudentOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={createStudent}>Save</Button>
+          <Button onClick={() => setRecordOpen(false)}>Cancel</Button>
+          <Button onClick={addRecord}>Save</Button>
         </DialogActions>
       </Dialog>
 
